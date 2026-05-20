@@ -1,4 +1,3 @@
-<img width="2300" height="1178" alt="Blank diagram (1)" src="https://github.com/user-attachments/assets/40652abd-ccfc-49c6-a8da-df89693b88ef" />
 # Case Study - HR System
 
 ## Problem Statement
@@ -46,8 +45,11 @@ A certain company needs a new HR system for managing its employees, salaries, va
 
 ---
 
-![HR System Diagram](hr-system.png)
+AWS:
 <img width="2300" height="1178" alt="Blank diagram (1)" src="https://github.com/user-attachments/assets/7a6d1c77-69b6-4245-bd81-cd4cb5c247fa" />
+
+Azure:
+![HR System Diagram](hr-system.png)
 
 
 ---
