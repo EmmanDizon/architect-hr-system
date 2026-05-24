@@ -159,6 +159,8 @@ Separate Lambda functions are used for:
 
 # Mermaid Sequence Diagram
 
+# Mermaid Sequence Diagram - Main User Flow
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -177,46 +179,66 @@ sequenceDiagram
     participant DB as Amazon RDS
     participant FileS3 as S3 File Storage
 
-    participant Scheduler as EventBridge Scheduler
-    participant PaymentLambda as Scheduled Payment Lambda
-    participant External as External Payment System
-
     User->>R53: Access HR System
     R53->>CF: Resolve domain
-    CF->>S3Frontend: Get frontend assets
-    S3Frontend-->>CF: Return frontend files
+    CF->>S3Frontend: Request frontend assets
+    S3Frontend-->>CF: Return HTML/CSS/JS
     CF-->>User: Load PWA
 
-    User->>API: API Request
+    User->>API: Send API request
 
     alt Employee Management
-        API->>Emp: Forward request
+        API->>Emp: Forward employee request
         Emp->>DB: CRUD employee data
         DB-->>Emp: Return result
         Emp-->>API: Response
     end
 
     alt Salary Management
-        API->>Salary: Forward request
+        API->>Salary: Forward salary request
         Salary->>DB: Process salary workflow
         DB-->>Salary: Return result
         Salary-->>API: Response
     end
 
     alt Vacation Management
-        API->>Vacation: Forward request
+        API->>Vacation: Forward vacation request
         Vacation->>DB: Manage vacation records
         DB-->>Vacation: Return result
         Vacation-->>API: Response
     end
 
-    User->>API: Request upload URL
-    API->>Emp: Generate pre-signed URL
-    Emp-->>User: Return pre-signed URL
-    User->>FileS3: Upload file directly
+    User->>API: Request pre-signed upload URL
+    API->>Emp: Generate S3 pre-signed URL
+    Emp-->>API: Return upload URL
+    API-->>User: Return upload URL
+
+    User->>FileS3: Upload attachment directly
+```
+
+---
+
+# Mermaid Sequence Diagram - Monthly Payment Export Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+
+    participant Scheduler as EventBridge Scheduler
+    participant PaymentLambda as Scheduled Payment Lambda
+    participant DB as Amazon RDS
+    participant S3 as S3 Payment File Bucket
+    participant External as External Payment System
 
     Scheduler->>PaymentLambda: Trigger monthly payment export
-    PaymentLambda->>DB: Retrieve payroll data
+
+    PaymentLambda->>DB: Retrieve approved payment data
     DB-->>PaymentLambda: Return payment data
-    PaymentLambda->>External: Send generated payment file
+
+    PaymentLambda->>PaymentLambda: Generate payment file
+
+    PaymentLambda->>S3: Upload payment file
+
+    External->>S3: Read / pull payment file
+    S3-->>External: Return payment file
 ```
