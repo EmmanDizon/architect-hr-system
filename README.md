@@ -147,13 +147,15 @@ Separate Lambda functions are used for:
 
 ---
 
-## Payment File Export
+### Payment File Export
+**EventBridge Scheduler + Scheduled AWS Lambda + S3**
 
-### Scheduled AWS Lambda
-- Runs automatically once per month.
-- Retrieves payment data from the database.
-- Generates payment files required by the legacy external system.
-- Uploads or sends the generated file to the external system.
+- EventBridge Scheduler triggers a Lambda function once per month.
+- The Lambda retrieves approved payment data from Amazon RDS.
+- The Lambda generates the payment file required by the legacy external system.
+- The generated file is stored in an S3 payment file bucket.
+- The external payment system reads or imports the file from S3.
+- This fits the requirement because the external system communicates through file-based input, not direct API calls.
 
 ---
 
