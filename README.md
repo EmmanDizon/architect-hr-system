@@ -45,7 +45,7 @@ A certain company needs a new HR system for managing its employees, salaries, va
 
 ---
 
-<img width="2300" height="1178" alt="Blank diagram (1)" src="https://github.com/user-attachments/assets/7a6d1c77-69b6-4245-bd81-cd4cb5c247fa" />
+<img width="2609" height="1600" alt="HR System" src="https://github.com/user-attachments/assets/ab6d1a13-3629-4d3a-8be2-98b43de2058c" />
 
 ---
 
