@@ -45,65 +45,178 @@ A certain company needs a new HR system for managing its employees, salaries, va
 
 ---
 
-AWS:
 <img width="2300" height="1178" alt="Blank diagram (1)" src="https://github.com/user-attachments/assets/7a6d1c77-69b6-4245-bd81-cd4cb5c247fa" />
-
-Azure:
-![HR System Diagram](hr-system.png)
-
 
 ---
 
-## Architecture Reasoning
+# Architecture Reasoning
 
-### DNS and Content Delivery
-- **DNS** for translating IP addresses to domain names
-- **Azure Front Door** for content delivery network to ensure fast access globally. Front Door can cache static assets closer to users, which reduces repeated requests to the origin and improves load times for things like JS, CSS, and images
+## DNS, TLS, and Content Delivery
 
-### API Gateway
-**Azure API Management (APIM)**
-- Single entry point for all backend services
-- Handles routing to different Azure Functions (Employee, Salary, Vacation)
-- Provides centralized authentication and authorization
-- Rate limiting and throttling to protect backend services
-- Request/response transformation if needed
-- Monitoring and analytics for API usage
+### Amazon Route 53
+- Manages DNS records for the HR system domain.
+- Resolves user requests to CloudFront.
 
-### Backend Services
-**Azure Functions (3 separate functions: Employee, Salary, Vacation)**
+### AWS Certificate Manager (ACM)
+- Provides SSL/TLS certificates for HTTPS.
+- Secures communication between users and the system.
 
-Why Azure Functions over App Service:
-- More cost efficient for this use case
-- Pay only when functions are actively running
-- Azure Functions includes 1 million free requests per month
-- Based on the system specs (not a lot of users), we will likely stay within the free tier
-- Even if we exceed 1 million requests, additional requests cost only $0.20 per million
-- No charges for idle time
+### Amazon CloudFront
+- Serves the frontend PWA from Amazon S3.
+- Caches static assets such as:
+  - JavaScript
+  - CSS
+  - Images
+  - Documents
+- Reduces latency and improves load times by serving content closer to users.
 
-**Tradeoff: Cold Start Latency**
-- Azure Functions may experience cold starts (1-3 second delay) after periods of inactivity
-- However, this is acceptable for this HR system because:
-  - HR operations are administrative tasks, not user-facing real-time features
-  - Users typically perform occasional actions (adding an employee, requesting salary changes)
-  - A few seconds of delay is acceptable for these infrequent operations
-  - HR staff are not expecting instant responses like in a customer-facing application
-  - The significant cost savings justify the minor delay
+---
 
-### Database
-**Azure SQL Database**
-- We are expecting structured data (employees, salaries, vacation records)
-- Relational database fits the data model perfectly
+## API Layer
 
-### File Upload Strategy
-**Optimized file handling approach:**
-- Separate backend service generates SAS (Shared Access Signature) tokens
-- Frontend uploads files directly to Azure Storage using SAS tokens
-- This approach offloads heavy file processing from the backend
-- More efficient and scalable than routing files through the backend
+### Amazon API Gateway
+- Single entry point for all backend APIs.
+- Routes requests to the correct Lambda service.
+- Can handle:
+  - Authentication
+  - Authorization
+  - Throttling
+  - Request validation
+  - Monitoring
 
-### Payment File Export
-**Scheduled Azure Function**
-- Runs automatically once per month
-- Retrieves all necessary payment data for the month
-- Generates payment file in the format required by the legacy system
-- Uploads file to the external payment system location
+---
+
+## Backend Services
+
+### AWS Lambda
+
+Separate Lambda functions are used for:
+- Employee Management
+- Salary Management
+- Vacation Management
+
+### Why Lambda?
+- Cost efficient for low-traffic systems
+- No need to manage servers
+- Automatically scales
+- Pay only when functions are invoked
+
+### Tradeoff: Cold Starts
+- Lambda may have cold start delays after inactivity.
+- Acceptable for this HR system because:
+  - HR operations are administrative tasks
+  - Not customer-facing real-time operations
+  - Small delays are acceptable
+
+---
+
+## Networking and Security
+
+### VPC + Private Subnet
+- Backend Lambdas run inside a VPC.
+- The database is placed in a private subnet.
+- The database is not publicly accessible from the internet.
+- Only backend services inside the VPC can access the database.
+
+---
+
+## Database
+
+### Amazon RDS
+- Relational database fits the HR system data model well.
+- Suitable for:
+  - Employees
+  - Salaries
+  - Vacation records
+  - Approval workflows
+  - Payment records
+
+---
+
+## File Upload Strategy
+
+### Amazon S3
+- File attachments are stored in S3 instead of the database.
+- Backend generates pre-signed URLs.
+- Frontend uploads files directly to S3.
+
+### Benefits
+- Reduces backend workload
+- Avoids sending large files through Lambda
+- More scalable and efficient
+
+---
+
+## Payment File Export
+
+### Scheduled AWS Lambda
+- Runs automatically once per month.
+- Retrieves payment data from the database.
+- Generates payment files required by the legacy external system.
+- Uploads or sends the generated file to the external system.
+
+---
+
+# Mermaid Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+
+    actor User
+
+    participant R53 as Route 53
+    participant CF as CloudFront
+    participant S3Frontend as S3 Frontend PWA
+    participant API as API Gateway
+
+    participant Emp as Employee Lambda
+    participant Salary as Salary Lambda
+    participant Vacation as Vacation Lambda
+
+    participant DB as Amazon RDS
+    participant FileS3 as S3 File Storage
+
+    participant Scheduler as EventBridge Scheduler
+    participant PaymentLambda as Scheduled Payment Lambda
+    participant External as External Payment System
+
+    User->>R53: Access HR System
+    R53->>CF: Resolve domain
+    CF->>S3Frontend: Get frontend assets
+    S3Frontend-->>CF: Return frontend files
+    CF-->>User: Load PWA
+
+    User->>API: API Request
+
+    alt Employee Management
+        API->>Emp: Forward request
+        Emp->>DB: CRUD employee data
+        DB-->>Emp: Return result
+        Emp-->>API: Response
+    end
+
+    alt Salary Management
+        API->>Salary: Forward request
+        Salary->>DB: Process salary workflow
+        DB-->>Salary: Return result
+        Salary-->>API: Response
+    end
+
+    alt Vacation Management
+        API->>Vacation: Forward request
+        Vacation->>DB: Manage vacation records
+        DB-->>Vacation: Return result
+        Vacation-->>API: Response
+    end
+
+    User->>API: Request upload URL
+    API->>Emp: Generate pre-signed URL
+    Emp-->>User: Return pre-signed URL
+    User->>FileS3: Upload file directly
+
+    Scheduler->>PaymentLambda: Trigger monthly payment export
+    PaymentLambda->>DB: Retrieve payroll data
+    DB-->>PaymentLambda: Return payment data
+    PaymentLambda->>External: Send generated payment file
+```
